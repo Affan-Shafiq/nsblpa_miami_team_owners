@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1050820134679",
+    "project_id": "nsblpa-teamowners-app",
+    "storage_bucket": "nsblpa-teamowners-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1050820134679:android:930d28f2f7bd1babd25952",
+        "android_client_info": {
+          "package_name": "com.nsblpa.miami"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1050820134679-90sa7c21f36al4o6ratr2tgrs5k14i1i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD1_6spCPRoEE8Nvn2c5fGauvxd_pwdIe0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1050820134679-90sa7c21f36al4o6ratr2tgrs5k14i1i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
