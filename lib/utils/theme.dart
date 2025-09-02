@@ -13,6 +13,7 @@ class AppTheme {
   static const Color successColor = Color(0xFF10B981);
   static const Color warningColor = Color(0xFFFFD700); // Gold for warnings
   static const Color errorColor = Color(0xFFEF4444);
+  static const Color borderColor = Color(0xFFE5E7EB); // Light gray for borders
 
   static ThemeData get lightTheme {
     return ThemeData(

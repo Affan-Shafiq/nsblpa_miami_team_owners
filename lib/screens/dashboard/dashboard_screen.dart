@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../utils/theme.dart';
+import '../../services/firebase_service.dart';
 import '../../services/dummy_data_service.dart';
+
 import 'widgets/ownership_dashboard.dart';
 import 'widgets/revenue_report.dart';
 import 'widgets/team_contracts.dart';
 import 'widgets/communication_tools.dart';
-import 'widgets/compliance_legal.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,58 +24,110 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const RevenueReport(),
     const TeamContracts(),
     const CommunicationTools(),
-    const ComplianceLegal(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Check if we have arguments to set initial tab
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialTab();
+    });
+  }
+
+  void _checkInitialTab() {
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    if (args != null && args['tab'] != null) {
+      final tabIndex = args['tab'] as int;
+      if (tabIndex >= 0 && tabIndex < _screens.length) {
+        setState(() {
+          _currentIndex = tabIndex;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              child: Image.asset(
-                'assets/images/miami_logo.png',
+        title: Flexible(
+          child: Row(
+            children: [
+              Container(
                 width: 32,
                 height: 32,
-                fit: BoxFit.contain,
+                child: Image.asset(
+                  'assets/images/miami_logo.png',
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.contain,
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Miami Revenue Runners',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Miami Revenue Runners',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      'Team Ownership Portal',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                Text(
-                  'Team Ownership Portal',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: Show notifications
+          // Dropdown menu for actions
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            onSelected: (value) {
+              switch (value) {
+                case 'admin':
+                  Navigator.pushNamed(context, '/admin');
+                  break;
+                case 'logout':
+                  _handleLogout();
+                  break;
+              }
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            onPressed: () {
-              // TODO: Show profile menu
-            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'admin',
+                child: Row(
+                  children: [
+                    Icon(Icons.admin_panel_settings, size: 20),
+                    SizedBox(width: 8),
+                    Text('Admin Panel'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red, size: 20),
+                    const SizedBox(width: 8),
+                    const Text('Logout', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -123,14 +177,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               activeIcon: Icon(Icons.chat),
               label: 'Communication',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.security_outlined),
-              activeIcon: Icon(Icons.security),
-              label: 'Compliance',
-            ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _handleLogout() async {
+    await FirebaseService.signOut();
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 }

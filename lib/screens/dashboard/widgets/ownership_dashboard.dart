@@ -1,16 +1,99 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../utils/theme.dart';
-import '../../../services/dummy_data_service.dart';
+import '../../../services/firebase_service.dart';
 
-class OwnershipDashboard extends StatelessWidget {
+import '../../../models/user_model.dart';
+
+class OwnershipDashboard extends StatefulWidget {
   const OwnershipDashboard({super.key});
 
   @override
+  State<OwnershipDashboard> createState() => _OwnershipDashboardState();
+}
+
+class _OwnershipDashboardState extends State<OwnershipDashboard> {
+  User? _currentUser;
+  Map<String, dynamic> _dashboardStats = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  Future<void> _loadDashboardData() async {
+    try {
+      final currentUser = FirebaseService.currentUser;
+      if (currentUser != null) {
+        final userData = await FirebaseService.getUserData(currentUser.uid);
+        final dashboardStats = await FirebaseService.getTeamDashboardStats();
+        
+        setState(() {
+          _currentUser = userData;
+          _dashboardStats = dashboardStats;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading dashboard: $e')),
+        );
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final user = DummyDataService.currentUser;
-    final stats = DummyDataService.teamStats;
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_currentUser == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.error_outline,
+              size: 64,
+              color: AppTheme.textSecondary.withOpacity(0.5),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Unable to load user data',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: _loadDashboardData,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 0);
+    final totalValue = _dashboardStats['totalValue'] ?? 0.0;
+    final totalRevenue = _dashboardStats['totalRevenue'] ?? 0.0;
+    final activeContracts = _dashboardStats['activeContracts'] ?? 0;
+    final totalContracts = _dashboardStats['totalContracts'] ?? 0;
+    final urgentCommunications = _dashboardStats['urgentCommunications'] ?? 0;
+    final totalUsers = _dashboardStats['totalUsers'] ?? 0;
+    final pendingUsers = _dashboardStats['pendingUsers'] ?? 0;
+
+    // Calculate ROI based on current value vs investment
+    final roi = _currentUser!.totalInvestment > 0 
+        ? (totalValue - _currentUser!.totalInvestment) / _currentUser!.totalInvestment 
+        : 0.0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -25,7 +108,7 @@ class OwnershipDashboard extends StatelessWidget {
               gradient: LinearGradient(
                 colors: [
                   AppTheme.primaryColor,
-                  AppTheme.primaryColor.withOpacity(0.8),
+                  AppTheme.primaryColor.withValues(alpha: 0.8),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
@@ -36,7 +119,7 @@ class OwnershipDashboard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Welcome back, ${user.name}!',
+                  'Welcome back, ${_currentUser!.name}!',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -46,7 +129,7 @@ class OwnershipDashboard extends StatelessWidget {
                 Text(
                   'Here\'s your team ownership overview',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                   ),
                 ),
               ],
@@ -54,6 +137,11 @@ class OwnershipDashboard extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
+
+
+
+
+            
 
           // Ownership Stats Grid
           Text(
@@ -68,37 +156,37 @@ class OwnershipDashboard extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.2,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+            childAspectRatio: 1.5,
             children: [
               _buildStatCard(
                 context,
                 'Ownership %',
-                '${user.ownershipPercentage}%',
+                '${_currentUser!.ownershipPercentage}%',
                 Icons.pie_chart,
                 AppTheme.primaryColor,
               ),
               _buildStatCard(
                 context,
                 'Total Investment',
-                currencyFormat.format(user.totalInvestment),
+                currencyFormat.format(_currentUser!.totalInvestment),
                 Icons.account_balance_wallet,
                 AppTheme.secondaryColor,
               ),
               _buildStatCard(
                 context,
                 'Current Value',
-                currencyFormat.format(user.totalInvestment * (1 + stats['roi'])),
+                currencyFormat.format(totalValue),
                 Icons.trending_up,
                 AppTheme.successColor,
               ),
               _buildStatCard(
                 context,
                 'ROI',
-                '${(stats['roi'] * 100).toStringAsFixed(1)}%',
+                '${(roi * 100).toStringAsFixed(1)}%',
                 Icons.percent,
-                AppTheme.accentColor,
+                roi >= 0 ? AppTheme.successColor : AppTheme.errorColor,
               ),
             ],
           ),
@@ -120,7 +208,7 @@ class OwnershipDashboard extends StatelessWidget {
                 child: _buildTeamStatCard(
                   context,
                   'Team Value',
-                  currencyFormat.format(stats['totalValue']),
+                  currencyFormat.format(totalValue),
                   Icons.business,
                   AppTheme.primaryColor,
                 ),
@@ -130,7 +218,7 @@ class OwnershipDashboard extends StatelessWidget {
                 child: _buildTeamStatCard(
                   context,
                   'Annual Revenue',
-                  currencyFormat.format(stats['totalRevenue']),
+                  currencyFormat.format(totalRevenue),
                   Icons.attach_money,
                   AppTheme.successColor,
                 ),
@@ -145,9 +233,9 @@ class OwnershipDashboard extends StatelessWidget {
               Expanded(
                 child: _buildTeamStatCard(
                   context,
-                  'Profit Margin',
-                  '${(stats['profitMargin'] * 100).toStringAsFixed(1)}%',
-                  Icons.analytics,
+                  'Active Contracts',
+                  '$activeContracts / $totalContracts',
+                  Icons.people,
                   AppTheme.secondaryColor,
                 ),
               ),
@@ -155,9 +243,9 @@ class OwnershipDashboard extends StatelessWidget {
               Expanded(
                 child: _buildTeamStatCard(
                   context,
-                  'Active Contracts',
-                  '${stats['activeContracts']}',
-                  Icons.people,
+                  'Team Members',
+                  '$totalUsers',
+                  Icons.group,
                   AppTheme.accentColor,
                 ),
               ),
@@ -184,7 +272,8 @@ class OwnershipDashboard extends StatelessWidget {
                   Icons.analytics_outlined,
                   AppTheme.primaryColor,
                   () {
-                    // TODO: Navigate to revenue report
+                    // Navigate to revenue report (index 1)
+                    _navigateToTab(1);
                   },
                 ),
               ),
@@ -196,7 +285,8 @@ class OwnershipDashboard extends StatelessWidget {
                   Icons.description_outlined,
                   AppTheme.secondaryColor,
                   () {
-                    // TODO: Navigate to contracts
+                    // Navigate to contracts (index 2)
+                    _navigateToTab(2);
                   },
                 ),
               ),
@@ -214,60 +304,50 @@ class OwnershipDashboard extends StatelessWidget {
                   Icons.announcement_outlined,
                   AppTheme.successColor,
                   () {
-                    // TODO: Navigate to announcements
+                    // Navigate to communication (index 3)
+                    _navigateToTab(3);
                   },
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildActionCard(
-                  context,
-                  'Compliance Docs',
-                  Icons.security_outlined,
-                  AppTheme.accentColor,
-                  () {
-                    // TODO: Navigate to compliance
-                  },
+                                  child: _buildActionCard(
+                    context,
+                    'Team Stats',
+                    Icons.analytics_outlined,
+                    AppTheme.accentColor,
+                                      () {
+                      // Navigate to communication (index 3)
+                      _navigateToTab(3);
+                    },
                 ),
               ),
             ],
           ),
 
           const SizedBox(height: 32),
-
-          // Recent Activity
-          Text(
-            'Recent Activity',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          _buildActivityItem(
-            context,
-            'Revenue report updated for Q3 2024',
-            '2 hours ago',
-            Icons.analytics,
-            AppTheme.successColor,
-          ),
-          _buildActivityItem(
-            context,
-            'New player contract signed',
-            '1 day ago',
-            Icons.person_add,
-            AppTheme.primaryColor,
-          ),
-          _buildActivityItem(
-            context,
-            'Team meeting scheduled',
-            '2 days ago',
-            Icons.event,
-            AppTheme.secondaryColor,
-          ),
         ],
       ),
     );
+  }
+
+  void _navigateToTab(int index) {
+    // Navigate to the specific tab in the parent dashboard
+    if (mounted) {
+      // Use a callback to communicate with parent widget
+      // For now, we'll use a simple approach with Navigator
+      switch (index) {
+        case 1: // Revenue
+          Navigator.pushNamed(context, '/dashboard', arguments: {'tab': 1});
+          break;
+        case 2: // Contracts
+          Navigator.pushNamed(context, '/dashboard', arguments: {'tab': 2});
+          break;
+        case 3: // Communication
+          Navigator.pushNamed(context, '/dashboard', arguments: {'tab': 3});
+          break;
+      }
+    }
   }
 
   Widget _buildStatCard(
@@ -279,38 +359,43 @@ class OwnershipDashboard extends StatelessWidget {
   ) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(8),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Icon(
                 icon,
                 color: color,
-                size: 24,
+                size: 18,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             Text(
               value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: color,
+                fontSize: 16,
               ),
               textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               title,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: AppTheme.textSecondary,
+                fontSize: 10,
               ),
               textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ],
         ),
@@ -336,7 +421,7 @@ class OwnershipDashboard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -389,7 +474,7 @@ class OwnershipDashboard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -426,7 +511,7 @@ class OwnershipDashboard extends StatelessWidget {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
+            color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -450,6 +535,50 @@ class OwnershipDashboard extends StatelessWidget {
         trailing: Icon(
           Icons.chevron_right,
           color: AppTheme.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAlertItem(
+    BuildContext context,
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+  ) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: color.withValues(alpha: 0.05),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: color,
+            size: 20,
+          ),
+        ),
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: color.withValues(alpha: 0.8),
+          ),
+        ),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: color,
         ),
       ),
     );

@@ -7,7 +7,7 @@ class Contract {
   final DateTime startDate;
   final DateTime endDate;
   final String status; // 'active', 'expired', 'pending'
-  final String? documentUrl;
+  final String teamId;
 
   Contract({
     required this.id,
@@ -18,7 +18,7 @@ class Contract {
     required this.startDate,
     required this.endDate,
     required this.status,
-    this.documentUrl,
+    required this.teamId,
   });
 
   factory Contract.fromJson(Map<String, dynamic> json) {
@@ -31,7 +31,7 @@ class Contract {
       startDate: DateTime.parse(json['startDate']),
       endDate: DateTime.parse(json['endDate']),
       status: json['status'],
-      documentUrl: json['documentUrl'],
+      teamId: json['teamId'],
     );
   }
 
@@ -45,7 +45,7 @@ class Contract {
       'startDate': startDate.toIso8601String(),
       'endDate': endDate.toIso8601String(),
       'status': status,
-      'documentUrl': documentUrl,
+      'teamId': teamId,
     };
   }
 }
